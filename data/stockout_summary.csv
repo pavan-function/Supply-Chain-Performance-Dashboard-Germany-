@@ -1,0 +1,9 @@
+warehouse_id,stockout_flag,city,capacity
+1,36,Hamburg,12673
+2,30,Hamburg,11949
+3,36,Munich,11882
+4,38,Hamburg,6906
+5,28,Hamburg,8086
+6,26,Frankfurt,18503
+7,31,Berlin,13152
+8,34,Munich,10750
