@@ -25,7 +25,8 @@
 
 BlitzMart is a simulated German e-commerce retailer. This project takes raw transactional data through a complete analytics pipeline — from data generation and cleaning, through SQL and Python analysis, to interactive Tableau dashboards and business recommendations.
 
-**The dataset spans 2022–2024:** 1.5M orders, 200K customers, 5,000 products, 6 warehouses, 5 shipping carriers, across 15 German cities.
+**The dataset spans 2022–2024:** 1.5M orders generated (1.39M delivered), 
+~200K customers....
 
 ---
 
