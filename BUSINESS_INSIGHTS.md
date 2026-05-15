@@ -91,16 +91,4 @@ Forecast accuracy ranges from **91.4% (Home & Kitchen)** to **94.1% (Toys)**. No
 
 ---
 
-## 📈 Next Steps in Project
-
-- [x] Data generation (6.6M rows, realistic patterns)
-- [x] ETL pipeline (29K data quality issues resolved)
-- [x] SQL analysis (15 queries)
-- [x] Python analysis (12 techniques)
-- [x] Business insights (this document)
-- [ ] **Tableau dashboards** (operations + sales views)
-- [ ] **GitHub repo** (structured, recruiter-ready)
-
----
-
-*Analysis by [Your Name] — Built using publicly inspired e-commerce KPIs benchmarked against Zalando, Otto, and DHL operational data.*
+*Analysis by Pavan raj Kotagiri — Built using publicly inspired e-commerce KPIs benchmarked against Zalando, Otto, and DHL operational data.*
