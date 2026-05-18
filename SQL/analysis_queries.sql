@@ -1,7 +1,7 @@
 -- =====================================================================
--- BlitzMart Analytics — SQL Analysis
+-- BlitzMart Analytics: SQL Analysis
 -- 15 business queries on 6.6M rows of German e-commerce data
--- Engine: DuckDB (PostgreSQL-compatible syntax)
+-- Engine: DuckDB (PostgreSQL compatible)
 -- =====================================================================
 
 
@@ -9,7 +9,7 @@
 -- SECTION 1: REVENUE & SALES PERFORMANCE
 -- =====================================================================
 
--- Q1: Topline business health — revenue, orders, AOV, customers
+-- Q1: topline KPIs. revenue, orders, AOV, customers, avg basket size
 SELECT
     COUNT(DISTINCT o.order_id)                                AS total_orders,
     COUNT(DISTINCT o.customer_id)                             AS unique_customers,
@@ -22,7 +22,7 @@ JOIN order_items oi ON o.order_id = oi.order_id
 WHERE o.order_status IN ('Delivered', 'Shipped');
 
 
--- Q2: Monthly revenue trend with Year-over-Year growth %
+-- Q2: monthly revenue with YoY growth using LAG(12)
 WITH monthly AS (
     SELECT DATE_TRUNC('month', o.order_date) AS month,
            SUM(oi.line_total)                AS revenue,
@@ -41,7 +41,8 @@ FROM monthly
 ORDER BY month;
 
 
--- Q3: Revenue, profit, and margin by product category
+-- Q3: revenue, profit, margin by category
+-- gross_profit = (price - cost) * qty * (1 - discount)
 SELECT p.category,
        SUM(oi.quantity)                                   AS units_sold,
        ROUND(SUM(oi.line_total), 0)                       AS revenue_eur,
@@ -58,7 +59,7 @@ GROUP BY p.category
 ORDER BY revenue_eur DESC;
 
 
--- Q4: Top 10 products by revenue
+-- Q4: top 10 products by revenue (window RANK so ties are explicit)
 SELECT p.product_id, p.product_name, p.category,
        SUM(oi.quantity)             AS units_sold,
        ROUND(SUM(oi.line_total), 0) AS revenue_eur,
@@ -72,7 +73,7 @@ ORDER BY revenue_eur DESC
 LIMIT 10;
 
 
--- Q5: Warehouse performance with share of total orders
+-- Q5: warehouse performance, with share of total orders via window SUM
 SELECT w.warehouse_name, w.region,
        COUNT(DISTINCT o.order_id)   AS orders_fulfilled,
        ROUND(SUM(oi.line_total), 0) AS revenue_eur,
@@ -91,7 +92,7 @@ ORDER BY revenue_eur DESC;
 -- SECTION 2: CUSTOMER ANALYTICS
 -- =====================================================================
 
--- Q6: Customer segment performance — Standard vs Premium vs VIP
+-- Q6: customer segment performance (Standard, Premium, VIP)
 SELECT c.customer_segment,
        COUNT(DISTINCT c.customer_id)                                AS customers,
        COUNT(DISTINCT o.order_id)                                   AS total_orders,
@@ -107,7 +108,7 @@ GROUP BY c.customer_segment
 ORDER BY revenue_eur DESC;
 
 
--- Q7: Top 20 customers by lifetime value
+-- Q7: top 20 customers by lifetime value (revenue across all their orders)
 SELECT c.customer_id,
        c.first_name || ' ' || c.last_name AS customer_name,
        c.city, c.customer_segment,
@@ -124,7 +125,8 @@ ORDER BY lifetime_value_eur DESC
 LIMIT 20;
 
 
--- Q8: New vs returning customer revenue split
+-- Q8: new vs returning revenue split
+-- ROW_NUMBER per customer ordered by date. 1 = first order = new
 WITH order_seq AS (
     SELECT o.order_id, o.customer_id, o.order_date,
            ROW_NUMBER() OVER (PARTITION BY o.customer_id ORDER BY o.order_date) AS order_num
@@ -146,7 +148,7 @@ ORDER BY revenue_eur DESC;
 -- SECTION 3: OPERATIONS & SUPPLY CHAIN
 -- =====================================================================
 
--- Q9: OTIF (On-Time-In-Full) by carrier
+-- Q9: OTIF by carrier. headline supply chain metric
 SELECT carrier,
        COUNT(*)                                                AS total_shipments,
        SUM(on_time_delivery)                                   AS on_time_count,
@@ -158,7 +160,7 @@ GROUP BY carrier
 ORDER BY on_time_pct DESC;
 
 
--- Q10: Fulfillment speed by warehouse
+-- Q10: fulfillment speed by warehouse
 SELECT w.warehouse_name, w.city,
        COUNT(s.shipment_id)                      AS shipments,
        ROUND(AVG(s.actual_delivery_days), 2)     AS avg_delivery_days,
@@ -170,7 +172,8 @@ GROUP BY w.warehouse_name, w.city
 ORDER BY avg_delivery_days ASC;
 
 
--- Q11: Return rate by product category
+-- Q11: return rate by category
+-- 2 CTEs: total orders per category, returned orders per category. then divide
 WITH cat_orders AS (
     SELECT p.category, COUNT(DISTINCT oi.order_id) AS total_orders
     FROM order_items oi
@@ -194,7 +197,7 @@ LEFT JOIN cat_returns cr ON co.category = cr.category
 ORDER BY return_rate_pct DESC;
 
 
--- Q12: Top return reasons — root cause analysis
+-- Q12: top return reasons. root cause for the refund cost
 SELECT return_reason,
        COUNT(*)                                          AS return_count,
        ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS pct_of_returns,
@@ -205,7 +208,7 @@ GROUP BY return_reason
 ORDER BY return_count DESC;
 
 
--- Q13: Payment method mix
+-- Q13: payment method mix
 SELECT o.payment_method,
        COUNT(*)                                          AS orders,
        ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1) AS pct_of_orders,
@@ -222,7 +225,10 @@ ORDER BY orders DESC;
 -- SECTION 4: ADVANCED ANALYTICS
 -- =====================================================================
 
--- Q14: RFM customer segmentation (Recency, Frequency, Monetary)
+-- Q14: RFM customer segmentation
+-- R = recency (days since last order), F = frequency (order count), M = monetary (total spend)
+-- NTILE(5) gives each customer a 1-5 score on each dimension
+-- CASE bucketizes into 7 segments. Champions get all 4+, At risk recent drop-off, etc.
 WITH customer_metrics AS (
     SELECT c.customer_id,
            DATE_DIFF('day', MAX(o.order_date), DATE '2024-12-31') AS recency_days,
@@ -260,7 +266,10 @@ GROUP BY rfm_segment
 ORDER BY rfm_segment;
 
 
--- Q15: Monthly cohort retention
+-- Q15: monthly cohort retention
+-- cohort = month of customer's first order
+-- track what % comes back at month 1, 3, 6, 12
+-- conditional COUNT(DISTINCT CASE WHEN ...) is the trick that makes it one query
 WITH first_order AS (
     SELECT customer_id, DATE_TRUNC('month', MIN(order_date)) AS cohort_month
     FROM orders
